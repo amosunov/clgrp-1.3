@@ -1,0 +1,677 @@
+% (C) 2016, Anton Mosunov
+
+%   CLGRP is free software; you can redistribute it and/or modify
+%   it under the terms of the GNU General Public License as published by
+%   the Free Software Foundation; either version 2 of the License, or
+%   (at your option) any later version.
+
+%   CLGRP is distributed in the hope that it will be useful,
+%   but WITHOUT ANY WARRANTY; without even the implied warranty of
+%   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%   GNU General Public License for more details.
+
+%   You should have received a copy of the GNU General Public License
+%   along with CLGRP; if not, write to the Free Software
+%   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+
+\documentclass[a4paper,10pt]{article}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{eucal}
+\usepackage{amscd}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\urlstyle{sf}
+
+\addtolength{\oddsidemargin}{-0.75in}
+\addtolength{\evensidemargin}{-0.75in}
+\addtolength{\textwidth}{1.5in}
+
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\HH}{\mathcal{H}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Pee}{\mathbb{P}}
+\newcommand{\EuO}{\mathcal{O}}
+\newcommand{\Qbar}{\overline{\mathbb{Q}}}
+\newcommand{\fn}{\hfill[Function]}
+\newcommand{\macro}{\hfill[Macro]}
+\newcommand{\gmp}{\hfill[GMP]}
+\newcommand{\code}{\lstinline}
+
+\newcommand{\ljk}[2]{\left(\frac{#1}{#2}\right)}
+\newcommand{\modulo}[1]{\;\left(\mbox{mod}\;#1\right)}
+\newcommand{\fr}{\mathfrak}
+
+\def\notdivides{\mathrel{\kern-3pt\not\!\kern4.5pt\bigm|}}
+\def\nmid{\notdivides}
+\def\nsubseteq{\mathrel{\kern-3pt\not\!\kern2.5pt\subseteq}}
+
+\parindent=0pt
+\parskip 4pt plus 2pt minus 2pt
+
+%\email{amosunov@uwaterloo.ca}
+
+\title{CLGRP 1.3\\Unconditional Class Group Tabulation}
+\author{Anton S. Mosunov}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\lstset{language=c}
+\lstset{basicstyle=\ttfamily}
+\lstset{keywordstyle=}
+%\lstset{morekeywords={mpz_t,mpz_poly_t,fmpz_poly_t}}
+\lstset{escapeinside=\%\%}
+
+
+
+
+
+\section{Introduction}
+
+The CLGRP library contains the implementation of various subroutines utilized for the tabulation of class groups of imaginary quadratic fields, as well as the unconditional verification of this tabulation. To parallelize the computations of the tabulation algorithm, the OpenMPI library is utilized.
+%To parallelize the computations of the verification algorithm, the OpenMP specification is utilized.
+
+CLGRP is maintained by Anton S. Mosunov, University of Waterloo, and is an appendix to the Master's thesis \cite{mosunov}, written under the supervision of Michael J. Jacobson, Jr. It is highly recommended to read the thesis (Section 4 in particular) before utilizing the library, as certain notions, such as the bundling parameter or the bit size parameter, are not defined in this manual.
+
+The manual for CLGRP is based on the \LaTeX \, template for the manual of FLINT 1.0:\\\url{http://web.mit.edu/sage/export/tmp/flint-1.1/doc/flint-roadmap.tex}.
+
+
+
+
+
+\section{Changes since the previous version}
+
+October 29th, 2016. Since the version 1.2, the following changes had been made:
+
+\begin{itemize}
+\item The \code{configure} file is now a part of CLGRP. In contrast, the previous version contained only the Makefile and required the user to edit it manually;
+\item All the files are now supplied with headers, providing information on the GNU General Public License.
+\end{itemize}
+
+
+
+
+
+\section{Dependencies in CLGRP} \label{sec:dependencies}
+
+CLGRP depends on several libraries and specifications that need to be present on your system prior to the installation. These libraries are:
+
+\begin{enumerate}
+\item \code{GMP}, \url{gmplib.org}. The GNU multiple precision arithmetic library;
+%\item \code{OpenMP}, \url{openmp.org}. The OpenMP API specification for parallel programming. Since version 4.2, every GCC compiler contains the implementation of the OpenMP specification;
+\item \code{OpenMPI}, \url{open-mpi.org}. A high performance message passing library;
+\item \code{optarith}, \url{github.com/maxwellsayles}. Optimized arithmetic operations for 32, 64, and 128bit integers. Includes optimized implementations of many different extended GCD algorithms;
+\item \code{PARI/GP}, \url{http://pari.math.u-bordeaux.fr/}. Computer algebra system designed for fast computations in number theory. In CLGRP, it is used solely for debugging purposes;
+\item \code{qform}, \url{github.com/maxwellsayles}. Ideal class group arithmetic in imaginary quadratic fields.
+\end{enumerate}
+
+Before installing, make sure that each of those libraries is installed. The only exception can be made regarding the \code{PARI/GP} library utilized for debugging purposes. In this case, when utilizing the CLGRP library make sure you don't use \code{-DWITH_PARI} when compiling your program, as the code will not compile.
+
+
+
+
+
+
+\section{Building and using CLGRP}
+
+The easiest way to use CLGRP is to build it using \code{make}. The \code{make} and the \code{make verify} command create executables, while the \code{make lib} command creates a static library.
+
+
+
+
+
+\section{Reporting issues}
+
+The maintainers wish to be made aware of any bugs in the library or typos in this manual. Please send an email with your bug report to \code{amosunov@uwaterloo.ca}.
+
+If possible please include details of your system, version of gcc, version of GMP and precise details of how to replicate the bug.
+
+Note that CLGRP needs to be linked against version 4.2.1 or later of GMP and must be compiled with gcc version 4.2 or later.
+
+
+
+
+
+\section{Files}
+
+The CLGRP library contains the following files:
+
+\begin{enumerate}
+\item The \code{functions.c} file contains miscellaneous functions utilized by the class group computation and verification algorithms. It also contains basic implementations of an indexed hash table type \code{htab_t}, vector type \code{vec_t} and a matrix type \code{mat_t}. See Subsection \ref{subsec:clgrp_extra} for more details;
+
+\item The \code{sieve.c} file contains implementations of various prime sieves. See the Subsection \ref{subsec:sieve} for more details;
+
+\item The \code{clgrp.c} file contains the implementation of the Buchmann-Jacobson-Teske Algorithm, or BJT, applied to the computation of a class group of some imaginary quadratic field. It also contains the subroutine for the tabulation of class groups. See Subsection \ref{subsec:clgrp} for more details;
+
+\item The \code{verify.c} file contains four subroutines utilized for the computation of the Eichler-Selberg trace formula, used for the unconditional verification of tabulated class groups. See Subsection \ref{subsec:verification} for more details;
+
+\item The files entitled \code{functions.h}, \code{sieve.h}, \code{clgrp.h} and \code{verify.h} contain declarations of all the subroutines implemented in files listed previously;
+
+\item The \code{clgrp_main.c} file contains the implementation of a command line program for the class group tabulation. This is the only file where the OpenMPI library is used for the parallelization. See Subsection \ref{subsec:clgrp_exe} for more details;
+
+\item The \code{verify_main.c} file contains the implementation of the command line program for unconditional verification of tabulated class groups. See Subsection \ref{subsec:verify_exe} for more details.
+\end{enumerate}
+
+
+
+
+
+\section{Macros} \label{subsec:clgrp_macros}
+
+The \code{MAX_RANK} macro defined in \code{clgrp.h} denotes the maximum rank among all the class groups that get tabulated. The standard value is $10$, so please adjust it if you know that there is a possibility that ranks of class groups you'll be considering may exceed this quantity;
+
+The \code{FAC_TOTAL} macro defined in \code{sieve.h} is utilized by the \code{tabulate_bjt} routine, and determines how many discriminants get factored at the same time by the sieve;
+
+The \code{MAX_DIVISORS} macro defined in \code{verify.h} is utilized during the verification and corresponds to the largest number of divisors that an integer can possess. By default, it corresponds to the integer 963761198400 with $\texttt{MAX\_DIVISORS}=12000$ divisors. No integer up to $2^{40}$ has more than 12000 prime divisors;
+
+The \code{WITH_INDICES} macro defined in \code{functions.h} is utilized by certain sieves. When the \code{flags} parameter of a particular routine is set to \code{WITH_INDICES}, instead of determining the actual prime factors of an integer it determines only the \emph{indices} of prime factors (say, if the 6th prime $p_6 = 13$ divides $n$, the function will record 6, \emph{not} 13). This allows to simplify certain parts of the verification procedure.
+
+The following macros can be defined during the compilation:
+
+\begin{itemize}
+\item \code{KEEP_FILES}. This macro is utilized solely by the \code{tabulate_bjt} routine, defined in \code{clgrp.c}. The prefixes of binary files with precomputed class numbers of imaginary quadratic fields can be provided to this function. This is done in order to speedup the tabulation, as the knowledge of a class number allows to discard certain $p$-subgroups of each class group from consideration. When the class groups get computed, these files get removed for the sake of cleaning up the space on the hard disk. When defined, the \code{KEEP_FILES} macro prevents the deletion of binary files. It is highly recommended to define this macro when compiling the program.
+
+\item \code{DEBUG}. When defined, this macro allows to trace the process of computation of the \code{compute_group_bjt} routine, defined in \code{clgrp.c}. It prints out a detailed information on every iteration of the BJT algorithm.
+
+\item \code{WITH_PARI}. When defined, this macro allows to verify whether the tabulation/verification of class groups was performed correctly.
+\end{itemize}
+
+
+
+
+
+\section{Setup} \label{subsec:clgrp_setup}
+
+Before installing the CLGRP library, make sure that all the libraries that CLGRP depends on are installed (see the full list in Section \ref{sec:dependencies}). \textbf{Pay a particular attention to the \code{optarith} library!} Before installing it, ensure that there are enough primes defined in files \code{primes.c}, \code{primes.h}, and their quadratic residues are precomputed in \code{sqrtmodp_list.c}, \code{sqrtmodp_list.h}. Several functions of the CLGRP library, namely \code{next_prime} in \code{functions.c} and \code{next} in \code{clgrp.c}, heavily rely on these precomputed values. The reason is that as the discriminant gets bigger, more prime ideals may need to be considered to generate the whole group. To derive how much primes you need you may utilize the \emph{conditional} upper bound on the number of prime generators due to Bach \cite{bach}, which is $6\log^2|\Delta|$. If you observed that there are not enough primes suitable for your needs, please compile the program \code{gen_sqrtmodp.cc} located in the folder \code{code_gen}. Run this program by providing to it the total number of primes you wish to generate as a parameter. It will generate two new files, \code{sqrtmodp_list.c} and \code{sqrtmodp_list.h}. Replace the old files with this name by the new ones, and then build the \code{optarith} library again with these new files.
+
+In order to prepare the CLGRP library for compilation, please edit the \code{Makefile}. The \code{Makefile} defines the following four commands:
+
+\begin{itemize}
+
+\item The \code{make} command builds an executable \code{clgrp} which allows to tabulate class groups. See Subsection \ref{subsec:clgrp_exe} on how to use it;
+
+\item The \code{make verify} command builds an executable \code{verify} which allows to verify tabulated data unconditionally. See Subsection \ref{subsec:verify_exe} on how to use it;
+
+\item The \code{make lib} command builds a static library \code{libclgrp.a}, which incorporates four object files: \code{clgrp.o}, \code{functions.o}, \code{sieve.o} and \code{verify.o}, produced from \code{clgrp.c}, \code{functions.c}, \code{sieve.c} and \code{verify.c}, respectively. The file \code{libclgrp.a} should be placed in your library path. See Subsection \ref{subsec:clgrp_lib} on how to link this library to your program;
+
+\item The \code{make clean} command removes all the files which have the extension \code{.o}. Use this command right after running \code{make lib} to remove all the object files.
+\end{itemize}
+
+
+
+
+
+\section{Supplementary types and functions} \label{subsec:clgrp_extra}
+
+The \code{functions.c} file contains implementation of three types, utilized by the class group tabulation program:
+
+\begin{itemize}
+\item \code{htab_t}: a generic indexed hash table with separate chaining. Utilizes the hash function $f_p \colon n \mapsto n$ (mod $p$), where $p$ is some predefined prime. Basic functionality is implemented, including insertion/deletion of an element, and deletion of an element defined by a specific index;
+
+\item \code{vec_t}: a dynamic array with entries of type \code{int};
+
+\item \code{mat_t}: a matrix with entries of type \code{int}. The only functionality provided is initializing, printing and clearing. The type is used by the \code{smith_normal_form} subroutine, which computes the Smith Normal Form (SNF) of a matrix. The SNF computation is an essential part of the BJT algorithm.
+\end{itemize}
+
+\begin{lstlisting}
+int next_prime(const int n)
+\end{lstlisting}
+
+Computes the prime which immediately follows \code{n}. Utilizes \code{prime_list} defined in \code{primes.c} of the \code{optarith} library.
+
+\begin{lstlisting}
+long crt(const int a, const int m, const int  b, const int n, const long min)
+\end{lstlisting}
+
+Computes the smallest number $x \geq \texttt{min}$ such that $x \equiv \texttt{a}$ (mod \texttt{m}) and $x \equiv \texttt{b}$ (mod \texttt{n}). This is an extra function utilized by the \code{mod_sieve} routine defined in \code{sieve.h}.
+
+\begin{lstlisting}
+char kronecker_symbol(long a, long p)
+\end{lstlisting}
+
+Computes the Kronecker symbol $\left(\frac{a}{p}\right)$.
+
+\begin{lstlisting}
+long divisors_list(long * result, long D, const int * pfactors,
+		   const int * primes, const int flags)
+\end{lstlisting}
+
+Computes the divisors of \code{D} and saves them into \code{result}. The \code{pfactors} array contains either prime divisors of \code{D} or their indices, depending on whether the \code{flags} parameter is $=0$ or \code{WITH_INDICES} (note that \code{pfactors[0]} contains the total number of prime factors). In the latter case, the \code{primes} array with precomputed list of primes is essential to find the actual \code{i}-th prime divisor by its index via \code{primes[pfactors[i]]}.
+
+
+
+
+
+\section{Sieves} \label{subsec:sieve}
+
+The class group tabulation procedure heavily relies on the integer factorization. There are two places where it occurs during the work of the \code{tabulate_bjt} routine defined in \code{clgrp.c}. First of all, as we are interested only in fundamental discriminants (i.e.\ those $\Delta$ that are not divisible by an odd square and satisfy the congruence $\Delta \equiv 1, 5, 8, 9, 12, 13$ (mod 16)), it is important to factor each $\Delta$ to see whether it is fundamental or not. Further, if the class number $h(\Delta)$ is known, the factorization of $h(\Delta)$ can tell us which $p$-subgroups can be ignored during the class group structure computation. As the factorization of each individual discriminant takes a lot of time, the sieving procedure is utilized to factor all the discriminants and class numbers in bulk.
+
+The verification procedure requires sieving when computing the right hand side of the Eichler-Selberg trace formula (see \cite[Section 5.3]{mosunov}).
+
+\textbf{Warning}: before using the functions \code{regular_sieve}, \code{segmented_sieve} and \code{mod_sieve}, make sure that enough memory is allocated for the two-dimensional array \code{factors} by precomputing the maximum number of prime factors that your integers can have. This can be done by determining the number $k$ such that $p_1 \cdot p_2 \cdot \ldots \cdot p_k \leq \texttt{blocksize} < p_1 \cdot p_2 \cdot \ldots \cdot p_k \cdot p_{k+1}$, where $p_i$ denotes the $i$-th prime. Every $n$-th array \texttt{factors[$n$]} is an array of $k+1$ elements, as the $0$-th entry contains the total number of prime factors. To find the $j$-th prime factor of an integer $n$, write \texttt{factors[$n$][$j+1$]}. To determine the total number of prime factors less than \code{max_prime}, write \texttt{factors[$n$][$0$]}.
+
+The following functions are implemented in \code{sieve.c}:
+
+\begin{lstlisting}
+void prime_sieve(const int max_prime, int * primes)
+\end{lstlisting}
+
+Computes all primes less than \code{max_prime} using the sieve of Eratosthenes and saves them to \code{primes}.
+
+\begin{lstlisting}
+void regular_sieve(const int max_prime, const long blocksize, int ** factors,
+		   const int * primes, const int flags)
+\end{lstlisting}
+
+This subroutine computes all prime factors less than \code{max_prime} of every integer less than \code{blocksize}. The precomputed primes are contained in \code{primes}. The result is saved into a two-dimensional array \code{factors}. When \code{flags=WITH_INDICES}, instead of prime factors the prime indices get stored.
+
+\begin{lstlisting}
+void segmented_sieve(const int max_prime, const long blocksize, const long l,
+		     int ** factors, const int * primes, const int flags)
+\end{lstlisting}
+
+This subroutine computes all prime factors less than \code{max_prime} of every integer between \code{l} and \mbox{$\texttt{l} + \texttt{blocksize}$} (exclusive). The precomputed primes are contained in \code{primes}. The result is saved into a two-dimensional array \code{factors}. When \code{flags=WITH_INDICES}, instead of prime factors the prime indices get stored.
+
+\begin{lstlisting}
+void mod_sieve(const long blocksize, const long l, int ** factors,
+	       const int * primes, const int a, const int m)
+\end{lstlisting}
+
+This subroutine computes all prime factors of every integer congruent to \code{a} (mod \code{m}) between \code{l} and \mbox{$\texttt{l} + \texttt{blocksize} \cdot \texttt{m}$} (exclusive). The precomputed primes are contained in \code{primes}. The result is saved into a two-dimensional array \code{factors}.
+
+
+
+
+
+\section{Class group computation and tabulation} \label{subsec:clgrp}
+
+The following functions are implemented in \code{clgrp.c}:
+
+\begin{lstlisting}
+void pari_verify(int * result, const long D)
+\end{lstlisting}
+
+This function gets declared whenever \code{WITH_PARI} macro is defined during compilation. Given the discriminant \code{D} (positive or negative) and the class group structure saved to \code{result}, it verifies the correctness of the data in \code{result} by computing the class group corresponding to \code{D} using PARI/GP. In case if the results do not match, the subroutine prints out the error message and terminates the program. This function is utilized by the \code{tabulate_bjt} function.
+
+\begin{lstlisting}
+int next(group_pow_t * gp, form_t * R, const int init_pow, int prime_index)
+\end{lstlisting}
+
+An extra function utilized by the \code{tabulate_bjt} subroutine. The \code{gp} parameter defines the class group; in particular, it contains the discriminant $\Delta$. The subroutine iterates through primes $p_1 = 2, p_2 =3, \ldots$ starting from index \code{prime_index} until the index $k$ is reached such that $b^2 \equiv \Delta$ (mod $p_k$) for some $b \in \mathbb Z$. As a result, the binary quadratic form $\left(p_k, b, (b^2-\Delta)/4a\right)^{\texttt{init\_pow}}$ gets saved into \code{R}, and $k$ gets returned.
+
+\begin{lstlisting}
+int h_upper_bound(const long D)
+\end{lstlisting}
+
+Computes the upper bound on the class number $h(\texttt{D})$ using Dirichlet's class number formula and Ramar\'e's bounds on $L(1, \chi_\Delta)$ (see \cite[Section 4.3]{mosunov}).
+
+\begin{lstlisting}
+int h_lower_bound(const long D)
+\end{lstlisting}
+
+Computes the \emph{conditional} lower bound $h^*$ of the class number $h(\texttt{D})$ satisfying $h^* \leq h(\Delta) \leq 2h^*$ using Bach's bound \cite{bach}. Utilized by the \code{tabulate_bjt} subroutine.
+
+\begin{lstlisting}
+int compute_group_bjt(int * result, const long D, const int init_pow,
+		      const int h_star, htab_t * R, htab_t * Q)
+\end{lstlisting}
+
+Computes the subgroup of order $h(\texttt{D})/\texttt{init\_pow}$ of a class group corresponding to the negative discriminant \code{D}. Here, \code{h_star} is the approximation of a class number $h(\texttt{D})$, satisfying \mbox{$\texttt{h\_star} \leq h(\texttt{D}) \leq 2\texttt{h\_star}$}. The \code{init_pow} parameter must divide $h(\texttt{D})$. If the class number is unknown, set to 1. If the prime factorization $h(\texttt{D})=p_1^{e_1}\cdot\ldots\cdot p_k^{e_k}$ is known, set $\texttt{init\_pow} = \prod\limits_{\substack{1 \leq i \leq k\\e_i=1}}p_i$. The resulting structure of a subgroup gets saved into \code{result}. The hash tables \code{R} and \code{Q} are utilized by the BJT algorithm.
+
+\begin{lstlisting}
+void tabulate_bjt(const int index, const long D_total, const char * file,
+		  const char * folder, const int a, const int m,
+		  const int * primes, int ** h_factors,
+		  int ** D_factors, int * h_list)
+\end{lstlisting}
+
+Tabulates all class groups with \emph{fundamental} negative discriminants $\Delta$, satisfying $|\Delta| \equiv \texttt{a}$ (mod \code{m}) and $\texttt{index} \cdot \texttt{D\_total} \cdot \texttt{m} \leq |\Delta| < (\texttt{index} + 1) \cdot \texttt{D\_total} \cdot \texttt{m}$ (exclusive). The resulting text file \code{cl[a]mod[m].[index]} get saved into a folder \code{cl[a]mod[m]} created by the program inside the folder \code{folder}; here, \code{[a]}, \code{[m]} and \code{[index]} should be replaced by the values of \code{a}, \code{m} and \code{index}, respectively. For the format of the text file see Subsection \ref{subsec:clgrp_examples}.  The set of primes in \code{primes} is used by the \code{mod_sieve} routine when factoring the discriminants. The two-dimensional array \code{h_factors} contains the list of precomputed prime divisors of \emph{all} potential class numbers. The prime divisors of each discriminant get saved into the array \code{D_factors}. The binary file located in \code{/folder/file[index]}, where \code{[index]} should be replaced by the value of \code{index}, contains all the class numbers for a given congruence class of $|\Delta|$. If the \code{KEEP_FILES} macro is undefined, this file gets deleted. If \code{file=NULL}, i.e.\ the class numbers are unknown, the algorithm utilizes the \code{h_lower_bound} routine and computes the class group conditionally.
+
+
+
+
+
+\section{Verification} \label{subsec:verification}
+
+The following subroutines are implemented in \code{verify.c}:
+
+\begin{lstlisting}
+void partial_left_hand_side(mpz_t sum, const char * file, const char * folder,
+			    const int index, const long blocksize, const long x,
+			    const int a, const int m, const int * primes,
+			    int ** factors)
+\end{lstlisting}
+
+Partially computes the left hand side of the Eichler-Selberg trace formula (multiple of 6, to balance out fractional $H(\Delta)$), corresponding to $|\Delta| \equiv a$ \mbox{(mod $m$)} for $\texttt{index} \cdot \texttt{blocksize} \leq |\Delta| \leq (\texttt{index} + 1) \cdot \texttt{blocksize}$, where $(a, m) \in \left\{(8, 16), (4, 16), (3, 8), (7, 8)\right\}$. If we set $i=\texttt{index}$ and $B = \texttt{blocksize}$, then this subroutine computes
+%
+$$
+S_{a, m, i, B}(X) = 6\sum\limits_{\substack{|\Delta| \equiv 0 \,\textnormal{(mod 8)}\\|\Delta| \equiv a \,\textnormal{(mod $m$)}\\iB \leq |\Delta| \leq (i+1)B}} H(\Delta) + 12\sum\limits_{\substack{|\Delta| \equiv a \,\textnormal{(mod $m$)}\\iB \leq |\Delta| \leq (i+1)B}}r(\Delta, X)H(\Delta)
+$$
+%
+where
+%
+$$
+r(\Delta, X) = \left\{
+\begin{array}{l l}
+0,							& \textnormal{if $|\Delta| \equiv 3$ (mod 8);}\\
+\left\lfloor \frac{Y+1}{2}\right\rfloor	& \textnormal{if $|\Delta| \equiv 7$ (mod 8);}\\
+\left\lfloor \frac{Y+2}{4}\right\rfloor	& \textnormal{if $|\Delta| \equiv 4$ (mod 8)};\\
+\left\lfloor \frac{Y}{4}\right\rfloor		& \textnormal{if $|\Delta| \equiv 0$ (mod 8)}\\
+\end{array}
+\right.
+$$
+%
+and $Y = \left\lfloor \sqrt{8X+\Delta} \right\rfloor$. The result of summation gets saved into \code{LHS}. All Hurwitz class numbers for fundamental $\Delta$ are contained in a file \code{/[folder]/[file].[index]} of the format described in Subsection \ref{subsec:clgrp_format}. In order to compute the Hurwitz class numbers for non-fundamental $\Delta$, the computation of Kronecker symbols modulo various primes is required. For this purpose, the array of primes \code{primes} and the two-dimensional array \code{factors} are supplied.
+
+\begin{lstlisting}
+void left_hand_side(mpz_t LHS, const long D_max, const long files,
+		    const int * primes, const char * folder)
+\end{lstlisting}
+
+Computes the left hand side of the Eichler-Selberg trace formula, multiplied by 6:
+%
+$$
+LHS = \sum\limits_{i = 0}^{\texttt{files} - 1}S_{8,16, i, B}(X) + S_{4,16, i, B}(X) + S_{3, 8, i, B}(X) + S_{7, 8, i, B}(X).
+$$
+%
+where $B = \texttt{D\_max} / \texttt{files}$. The result is saved into \code{LHS}. The files are located in \code{folder}. The tabulation upper bound is \code{D_max} and the total number of files for each congruence class is \code{files}. The array \code{primes} contains precomputed primes required for the computation of Kronecker symbols.
+
+\begin{lstlisting}
+void partial_right_hand_side(mpz_t sum, const long blocksize, const long l,
+			     const int * primes, int ** factors)
+\end{lstlisting}
+
+Partially computes the right hand side of the Eichler-Selber trace formula multiplied by 6 (to balance out the fraction occurring in $1/6 \chi(2n)$):
+%
+$$
+R_l = 6\sum\limits_{n = l}^{\texttt{l} + \texttt{blocksize} - 1}\left(2\left(\sum\limits_{\substack{d \mid 2n\\d \geq \sqrt{2n}}}d\right) - \chi(2n)\sqrt{2n} + \frac{1}{6}\chi(2n)\right).
+$$
+%
+The result is saved into \code{sum}. The array \code{primes} contains precomputed primes required for the computation of divisors of each even $2\texttt{l} \leq n < 2(\texttt{l} + \texttt{blocksize} - 1)$. The two-dimensional array \code{factors} is utilized to store prime factors of each $n$.
+
+\begin{lstlisting}
+void right_hand_side(mpz_t RHS, const long n_max, const long blocksize,
+		     const int * primes)
+\end{lstlisting}
+
+Computes the right hand side of the Eichler-Selberg trace formula, multiplied by 6:
+%
+$$
+6RHS = \sum\limits_{l = 0}^{\texttt{n\_max} / \texttt{blocksize} - 1}R_l.
+$$
+%
+The result is saved into \code{RHS}. The upper bound \code{n_max} should be evenly divisible by \code{blocksize}. The summation is performed block-by-block ($\texttt{n\_max} / \texttt{blocksize}$ blocks in total). The array \code{primes} contains precomputed primes, required for the computation of divisors of each even $n < 2\texttt{n\_max}$.
+%Requires OpenMP specification for parallelization. 
+
+
+
+
+
+\section{Utilizing the executable for tabulation} \label{subsec:clgrp_exe}
+
+To run the program, use the command \code{mpirun} and through \code{-np} specify how many processors you would like to use for parallelization. The executable accepts six parameters:
+
+\begin{itemize}
+\item \code{[D_max]}: the tabulation upper bound;
+\item \code{[files]}: total number of files where the data gets saved. Must divide \code{D_max};
+\item \code{[a]}: the congruence class of $|\Delta|$ modulo \code{m}. Has to be either 4, 8 when $\texttt{m}=16$ or 3, 7 when $\texttt{m}=8$;
+\item \code{[m]}: the modulus, either 8 or 16. Must evenly divide $\texttt{D\_max} / \texttt{files}$;
+\item \code{[h_prefix]}: the prefix of the binary files containing class numbers for a specific congruence class. Set to \code{null} if the class numbers are unknown;
+\item \code{[folder]}: the folder where the data gets saved.
+\end{itemize}
+
+The parameters should be supplied in the following order:
+
+\begin{lstlisting}
+mpirun -np [procs] ./clgrp [D_max] [files] [a] [m] [h_prefix] [folder]
+\end{lstlisting}
+
+
+
+
+
+\section{Utilizing the executable for verification} \label{subsec:verify_exe}
+
+To produce the executable, please use the \code{make verify} command. The \code{verify} program accepts three command line parameters:
+
+\begin{itemize}
+\item \code{[D_max]}: the tabulation upper bound;
+\item \code{[files]}: total number of files to which the data gets saved. Must divide \code{D_max};
+\item \code{[folder]}: the folder where the data gets saved.
+\end{itemize}
+
+The parameters should be supplied in the following order:
+
+\begin{lstlisting}
+./verify [D_max] [files] [folder]
+\end{lstlisting}
+
+Note that in order for the program to work correctly, the folder \code{folder} should contain four folders \code{cl8mod16}, \code{cl4mod16}, \code{cl3mod8} and \code{cl7mod8}, which in turn contain the result of tabulation for a specific congruence class, distributed over \code{files} files.
+
+
+
+
+
+\section{File format} \label{subsec:clgrp_format}
+
+All tabulated class groups get saved into a text file, compressed with \code{gzip}. The name of each file is of the form \code{cl[a]mod[m].[index]}, where \code{[a]} is the congruence class of $|\Delta|$ modulo \code{[m]}, \code{[m]} is the modulus, and \code{[index]} is the index of a file. For each file, it is important to determine the starting discriminant \code{D_start}. To do this, you need to know the value \code{D_total}, which satisfies $\texttt{index} \cdot \texttt{D\_total} \leq |\Delta| < (\texttt{index} + 1) \cdot \texttt{D\_total}$. Note that $\texttt{D\_total} = \texttt{D\_max} / \texttt{files}$, where $\texttt{D\_max} = |\Delta_{\textnormal{max}}|$ is the tabulation upper bound, and \code{files} is the total number of files among which the tabulated class groups get distributed (so $0 \leq \texttt{index} < \texttt{files}$). In the end, we have $\texttt{D\_start} = \texttt{a} + \texttt{index} \cdot \texttt{D\_total}$.
+
+The output text file has the following format (description taken from \cite{lmfdb}):
+
+\begin{itemize}
+\item There is one line per field;
+\item Fundamental discriminants for a given file are listed in order (in absolute value);
+\item If $\Delta_i = -d_i$ is the $i$-th discriminant of a file, line $i + 1$ has the form
+%
+$$
+a \,\,\,\,\, b \,\,\,\,\, c_1c_2 \ldots c_t
+$$
+%
+to signify that
+
+\begin{itemize}
+\item $d_{i+1} = d_i + a \cdot m$ ($m$ is the modulus for the file);
+\item $h(-d_{i+1}) = b$;
+\item invariant factors for the class group are $[c_1, c_2, \ldots, c_t]$.
+\end{itemize}
+
+In particular, $b = \prod_{j=1}^t c_j$.
+\end{itemize}
+
+For example, the first 10 lines of the file \code{cl8mod16.0} ($\texttt{a}=8$, $\texttt{m}=16$, $\texttt{index}=0$), downloaded from \cite{lmfdb}, can be translated as follows:
+\begin{center}
+\begin{tabular}{l l}
+\begin{lstlisting}
+
+0       1       1
+1       2       2
+1       2       2
+1       4       4
+2       2       2
+1       6       6
+1       4       2 2
+1       4       4
+1       6       6
+1       4       2 2
+       ...
+\end{lstlisting}
+&
+\begin{tabular}{| r | c | l |}
+\hline
+$|\Delta|$ & $h(\Delta)$ & $Cl(\Delta)$\\
+\hline
+\hline
+$8 = 8 + 0 \cdot 16 + 0 \cdot 2^{28}$		& 1	& $C_1$\\
+$24 = 8 + 1\cdot 16$		& 2	& $C_2$\\
+$40 = 24 + 1 \cdot 16$	& 2	& $C_2$\\
+$56 = 40 + 1 \cdot 16$	& 4	& $C_4$\\
+$88 = 56 + 2 \cdot 16$	& 2	& $C_2$\\
+$104 = 88 + 1 \cdot 16$	& 6	& $C_6$\\
+$120 = 104 + 1 \cdot 16$	& 4	& $C_2 \times C_2$\\
+$136 = 120 + 1 \cdot 16$	& 4	& $C_4$\\
+$152 = 136 + 1 \cdot 16$	& 6	& $C_6$\\
+$168 = 152 + 1 \cdot 16$	& 4	& $C_2 \times C_2$\\
+& \ldots &\\
+\hline
+\end{tabular}
+\end{tabular}
+\end{center}
+
+In the first line of the table on the right, we have $\texttt{D\_total} = \texttt{D\_max} / \texttt{files} = 2^{40} / 2^{12} = 2^{28}$.
+
+
+
+
+
+\section{Examples} \label{subsec:clgrp_examples}
+
+\textbf{Example 1}. The following command tabulates all class groups with $|\Delta| \equiv 8$ (mod 16) and \mbox{$|\Delta| < 2^{40}$} = 1099511627776. The result gets saved into $2^{12}=4096$ files \code{/home/cl8mod16/cl8mod16.0}, \ldots, \code{/home/cl8mod16/cl8mod16.4095}. The files \code{/home/h8mod16/h8mod16.0}, \ldots, \code{/home/h8mod16/h8mod16.4095} contain $h(\Delta)$ for $|\Delta| \equiv 8$ (mod 16). There are 256 processors utilized by OpenMPI for parallelization.
+
+\begin{lstlisting}
+mpirun -np 256 ./clgrp 1099511627776 4096 8 16 h8mod16/h8mod16. /home
+\end{lstlisting}
+
+\textbf{Example 2}. The following command tabulates all class groups with $|\Delta| \equiv 4$ (mod 16) and \mbox{$|\Delta| < 2^{40}$} = 1099511627776. The result gets saved into $2^{12}=4096$ files \code{/home/cl4mod16/cl4mod16.0}, \ldots, \code{/home/cl4mod16/cl4mod16.4095}. The files \code{/home/h4mod16/h4mod16.0}, \ldots, \code{/home/h4mod16/h4mod16.4095} contain multiples of 2 of $h(\Delta)$ for $|\Delta| \equiv 4$ (mod 16). There are 256 processors utilized by OpenMPI for parallelization.
+
+\begin{lstlisting}
+mpirun -np 256 ./clgrp 1099511627776 4096 4 16 h4mod16/h4mod16. /home
+\end{lstlisting}
+
+\textbf{Example 3}. The following command tabulates all class groups with $|\Delta| \equiv 3$ (mod 8) and \mbox{$|\Delta| < 2^{40}$} = 1099511627776. The result gets saved into $2^{12}=4096$ files \code{/home/cl3mod8/cl3mod8.0}, \ldots, \code{/home/cl3mod8/cl3mod8.4095}. The files \code{/home/h3mod8/h3mod8.0}, \ldots, \code{/home/h3mod8/h3mod8.4095} contain multiples of 3 of $h(\Delta)$ for $|\Delta| \equiv 4$ (mod 16). There are 256 processors utilized by OpenMPI for parallelization.
+
+\begin{lstlisting}
+mpirun -np 256 ./clgrp 1099511627776 4096 3 8 h3mod8/h3mod8. /home
+\end{lstlisting}
+
+\textbf{Example 4}. The following command \emph{conditionally} tabulates all class groups with $|\Delta| \equiv 7$ (mod 8) and \mbox{$|\Delta| < 2^{40}$} = 1099511627776. The result gets saved into $2^{12}=4096$ files \code{/home/cl7mod8/cl7mod8.0}, \ldots, \code{/home/cl7mod8/cl7mod8.4095}. The \code{null} parameter indicates that the class numbers for this congruence class are unknown. There are 256 processors utilized by OpenMPI for parallelization.
+
+\begin{lstlisting}
+mpirun -np 256 ./clgrp 1099511627776 4096 7 8 null /home
+\end{lstlisting}
+
+\textbf{Example 5}. The following command verifies the class group tabulation data up to $|\Delta| < 2^{40} = 1099511627776$. The data for each congruence class is distributed over $2^{12} = 4096$ files.
+
+\begin{lstlisting}
+./verify 1099511627776 4096 /home
+\end{lstlisting}
+
+
+
+
+
+\section{Utilizing the library} \label{subsec:clgrp_lib}
+
+In order to utilize the library, place the files \code{clgrp.h}, \code{functions.h}, \code{sieve.h} and \code{verify.h} into your include path, and copy the library \code{libclgrp.a} into your library path. By writing
+%
+\begin{lstlisting}
+#include <clgrp.h>
+\end{lstlisting}
+%
+among other inclusions in your file you will gain access to all the subroutines defined in \code{clgrp.h}. Same applies to other files mentioned above.
+
+When compiling, link the library to your program by writing \code{-lclgrp}. Don't forget to link all the other libraries that CLGRP depends on (see Subsection \ref{sec:dependencies} for the complete list).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{thebibliography}{Koh05}
+
+%% Use the widest label as parameter.
+%% Reference items can be numbered or have labels of your choice, as below.
+
+%% In IMPAN journals, only the title is italicized; boldface is not used.
+%% Our software will add links to many articles; for this, enclosing volume numbers in { } is helpful
+%% Do not give the issue number unless the issues are paginated separately.
+
+%%%%%%%%%%% To ease editing, use normal size:
+
+\normalsize
+\baselineskip=17pt
+
+\bibitem[Bac90]{bach}
+E. Bach,
+\emph{Explicit bounds for primality testing and related problems},
+Computation 55, pp. 355 -- 380, 1990.
+
+\bibitem[BJT97]{buchmann}
+J. Buchmann, M.~J. Jacobson, Jr., E. Teske,
+\emph{On some computational problems in finite abelian groups},
+Mathematics of Computation 66 (220), pp. 1663 -- 1687, 1997.
+
+\bibitem[GG03]{gathen}
+J.\ von zur Gathen, J.\ Gerhard,
+\emph{Modern Computer Algebra},
+Cambridge University Press, 2nd edition, 2003.
+
+\bibitem[HTW10]{hart}
+W.~B. Hart, G. Tornar\'ia, M. Watkins,
+\emph{Congruent number theta coefficients to $10^{12}$},
+Algorithmic Number Theory --- ANTS-IX (Nancy, France), Lecture Notes in Computer Science 6197, Springer-Verlag, Berlin, pp. 186 -- 200,  2010.
+
+\bibitem[JRW06]{jacobson}
+M.~J. Jacobson, Jr., S. Ramachandran, H.~C. Williams,
+\emph{Numerical results on class groups of imaginary quadratic fields},
+Algorithmic Number Theory --- ANTS-VII (Berlin, Germany), Lecture Notes in Computer Science 4076, Springer-Verlag, Berlin, pp. 87 -- 101,  2006.
+
+\bibitem[LMFDB]{lmfdb}
+Linear and Modular Forms Database,
+\emph{Class Groups of Quadratic Imaginary Fields}.
+\url{http://beta.lmfdb.org/NumberField/QuadraticImaginaryClassGroups},
+2015.
+
+\bibitem[Mos14]{mosunov}
+A.~S. Mosunov,
+\emph{Unconditional Class Group Tabulation to $2^{40}$},
+Master's thesis, University of Calgary, Calgary, Alberta, 2014.
+
+\bibitem[Say13a]{sayles}
+M. Sayles,
+\emph{Improved arithmetic in the ideal class group of imaginary quadratic fields with an application to integer factoring},
+Master's thesis, University of Calgary, Calgary, Alberta, 2013.
+
+\bibitem[SvdV91]{schoof}
+R. Schoof, M. van der Vlugt,
+\emph{Hecke operators and the weight distributions of certain codes},
+Journal of Combinatorial Theory 57, pp. 163 -- 186, 1991.
+
+\bibitem[Wes14]{westgrid}
+Hungabee specification,
+\url{https://www.westgrid.ca/support/systems/Hungabee}, 2014.
+
+\end{thebibliography}
+
+\end{document}
